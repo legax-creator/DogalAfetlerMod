@@ -1,0 +1,31 @@
+name: Minecraft Mod CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Depoyu Klonla
+      uses: actions/checkout@v4
+
+    - name: Java 17 Kurulumu
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Gradle Önbelleğini Ayarla (Hızlandırmak İçin)
+      uses: gradle/actions/setup-gradle@v3
+
+    - name: Gradle Komutunu Çalıştırılabilir Yap
+      run: chmod +x gradlew
+
+    - name: Modu Derle (Build)
+      run: ./gradlew build
+      
