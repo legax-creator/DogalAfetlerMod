@@ -197,7 +197,7 @@ public class DisasterManager {
                         }
                         BlockPos below = target.below();
                         if (level.getBlockState(below).getBlock() == Blocks.STONE) {
-                            level.setBlockAndUpdate(below, Blocks.MOSSY_COBBLESTONE.defaultBlockState());
+                            level.setBlockAndUpdate(below, Blocks.MOSSY_STONE.defaultBlockState());
                         }
                     }
                 }
