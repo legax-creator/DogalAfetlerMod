@@ -80,8 +80,10 @@ public class DisasterManager {
             disasterTimer = 1200; // 1 dk
             broadcastMessage(level, "§4[TEHLİKE] Gökyüzü kararıyor... Dev bir HORTUM yaklaşıyor!");
         } 
-        else if (dice >= 24 && dice < 36) { // %12 Tsunami (Depremsiz tetiklenme)
-            startTsunami(level);
+        else if (dice >= 24 && dice < 36) { // %12 Tsunami
+            activeDisaster = 3;
+            disasterTimer = 1600;
+            broadcastMessage(level, "§4[DEHŞET] Denizler kabarıyor, dev TSUNAMİ dalgaları geliyor!");
         }
         else if (dice >= 36 && dice < 48) { // %12 Kar Fırtınası
             activeDisaster = 4;
@@ -101,8 +103,8 @@ public class DisasterManager {
             
             // %40 Deprem sonrası Tsunami şansı
             if (RANDOM.nextInt(100) < 40) {
-                disasterTimer += 1200; // Süreyi tsunami için uzat
-                activeDisaster = 3; // Deprem biter bitmez Tsunami devreye girsin
+                disasterTimer += 1200;
+                activeDisaster = 3;
             }
         }
         else if (dice >= 72 && dice < 84) { // %12 Girdap
@@ -110,12 +112,6 @@ public class DisasterManager {
             disasterTimer = 2400; // 2 dk
             broadcastMessage(level, "§9[TEHLİKE] Okyanusta devasa bir GİRDAP oluştu!");
         }
-    }
-
-    private static void startTsunami(ServerLevel level) {
-        activeDisaster = 3;
-        disasterTimer = 1600;
-        broadcastMessage(level, "§4[DEHŞET] Denizler kabarıyor, dev TSUNAMİ dalgaları geliyor!");
     }
 
     private static void runActiveDisasterLogic(ServerLevel level) {
@@ -157,7 +153,6 @@ public class DisasterManager {
 
     // 2. HORTUM
     private static void runTornado(ServerLevel level) {
-        // Hortumu her tick rastgele 1-2 blok hareket ettir
         disasterCenter = disasterCenter.east(RANDOM.nextInt(3)-1).south(RANDOM.nextInt(3)-1);
         int radius = 15;
         
@@ -167,17 +162,16 @@ public class DisasterManager {
         for (Entity entity : entities) {
             if (entity instanceof LivingEntity living) {
                 Vec3 direction = Vec3.atCenterOf(disasterCenter).subtract(living.position());
-                living.setDeltaMovement(direction.normalize().scale(0.3).add(0, 0.4, 0)); // Merkeze ve yukarı çek
+                living.setDeltaMovement(direction.normalize().scale(0.3).add(0, 0.4, 0));
                 living.hurtMarked = true;
 
                 if (living instanceof ServerPlayer player) {
-                    player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 60, 0)); // 3 sn bulantı
-                    player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0));  // Görüş azalması
+                    player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 60, 0));
+                    player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0));
                 }
             }
         }
 
-        // Blok çekme mantığı
         for (int i = 0; i < 5; i++) {
             BlockPos breakPos = disasterCenter.east(RANDOM.nextInt(radius*2)-radius).south(RANDOM.nextInt(radius*2)-radius).above(RANDOM.nextInt(10));
             if (!level.getBlockState(breakPos).isAir() && level.getBlockState(breakPos).getDestroySpeed(level, breakPos) >= 0) {
@@ -188,37 +182,33 @@ public class DisasterManager {
 
     // 3. TSUNAMİ
     private static void runTsunamiLogic(ServerLevel level) {
-        // Dalgaları oyuncuların etrafına doğru yükselt
         for (ServerPlayer player : level.players()) {
             BlockPos pPos = player.blockPosition();
             for (int x = -10; x <= 10; x++) {
                 for (int z = -10; z <= 10; z++) {
                     BlockPos target = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, pPos.east(x).south(z));
-                    if (target.getY() < 75) { // Deniz seviyesinin biraz üstüne kadar su bassın
+                    if (target.getY() < 75) {
                         if (level.getBlockState(target).isAir()) {
                             level.setBlockAndUpdate(target, Blocks.WATER.defaultBlockState());
-                            // Etraftaki zayıf blokları kır
                             BlockPos wallPos = target.east().south();
                             if(level.getBlockState(wallPos).getBlock() == Blocks.GRASS || level.getBlockState(wallPos).getBlock() == Blocks.POPPY) {
                                 level.destroyBlock(wallPos, false);
                             }
                         }
-                        // Taşları yosunlu taşa çevir
                         BlockPos below = target.below();
                         if (level.getBlockState(below).getBlock() == Blocks.STONE) {
                             level.setBlockAndUpdate(below, Blocks.MOSSY_COBBLESTONE.defaultBlockState());
-                            
+                        }
                     }
                 }
             }
-            // Deniz canlılarını karaya fırlat
             if (RANDOM.nextInt(50) == 0) {
                 EntityType.SQUID.spawn(level, player.blockPosition().above(5), net.minecraft.world.entity.MobSpawnType.EVENT);
             }
         }
     }
 
-    // 4. ÇIĞ MEKANİĞİ (Tetiklenme Eventleri)
+    // 4. ÇIĞ MEKANİĞİ
     @SubscribeEvent
     public static void onPlayerFall(LivingFallEvent event) {
         if (!event.getEntity().level().isClientSide() && event.getEntity() instanceof ServerPlayer player && event.getDistance() >= 3) {
@@ -237,14 +227,14 @@ public class DisasterManager {
         ServerLevel level = player.serverLevel();
         BlockPos pos = player.blockPosition();
         if (level.getBiome(pos).is(Biomes.SNOWY_TAIGA) || level.getBiome(pos).is(Biomes.JAGGED_PEAKS) || level.getBiome(pos).is(Biomes.FROZEN_PEAKS)) {
-            if (pos.getY() > 90 && RANDOM.nextInt(100) < 25) { // %25 çığ ihtimali
+            if (pos.getY() > 90 && RANDOM.nextInt(100) < 25) {
                 broadcastMessage(level, "§b[TEHLİKE] Dağda kar kütleleri kırıldı! ÇIĞ DÜŞÜYOR!");
                 for (int i = 0; i < 15; i++) {
                     BlockPos spawnPos = pos.above(10).east(RANDOM.nextInt(9)-4).south(RANDOM.nextInt(9)-4);
                     FallingBlockEntity.fall(level, spawnPos, Blocks.SNOW_BLOCK.defaultBlockState());
                 }
                 player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 100, 2));
-                player.hurt(level.damageSources().freeze(), 4.0F); // Donma hasarı
+                player.hurt(level.damageSources().freeze(), 4.0F);
             }
         }
     }
@@ -255,20 +245,17 @@ public class DisasterManager {
             BlockPos pos = player.blockPosition();
             if (level.canSeeSky(pos)) {
                 player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0, false, false));
-                player.setTicksFrozen(player.getTicksFrozen() + 15); // Hızlıca donmaya başlar
+                player.setTicksFrozen(player.getTicksFrozen() + 15);
                 
-                // Kar yükselmesi
                 if (RANDOM.nextInt(10) == 0) {
                     BlockPos snowPos = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, pos.east(RANDOM.nextInt(7)-3).south(RANDOM.nextInt(7)-3));
                     if (level.getBlockState(snowPos).getBlock() == Blocks.SNOW) {
-                        // Kar katmanını tamamen kar bloğuna çevirerek sıkıştır
                         level.setBlockAndUpdate(snowPos, Blocks.SNOW_BLOCK.defaultBlockState());
                     } else if (level.getBlockState(snowPos).isAir()) {
                         level.setBlockAndUpdate(snowPos, Blocks.SNOW.defaultBlockState());
                     }
                 }
             }
-            // Kar içinde sıkışırsa hasar yesin
             if (level.getBlockState(pos.above()).getBlock() == Blocks.SNOW_BLOCK || level.getBlockState(pos).getBlock() == Blocks.SNOW_BLOCK) {
                 player.hurt(level.damageSources().inWall(), 2.0F);
             }
@@ -286,18 +273,16 @@ public class DisasterManager {
                     int time = customTimerMap.getOrDefault(id, 0) + 1;
                     customTimerMap.put(id, time);
 
-                    if (time >= 300) { // 15 saniye (300 tick) açıkta kaldıysa
+                    if (time >= 300) {
                         player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 60, 0));
                         player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 60, 0));
-                        player.setSecondsOnFire(3); // Yanma hasarı
+                        player.setSecondsOnFire(3);
                     }
                 } else {
-                    // Siperdeyse zamanlayıcı düşsün
                     UUID id = player.getUUID();
                     if (customTimerMap.containsKey(id)) customTimerMap.put(id, Math.max(0, customTimerMap.get(id) - 2));
                 }
 
-                // Kum seviyesi artışı
                 if (RANDOM.nextInt(15) == 0) {
                     BlockPos sandPos = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, pos.east(RANDOM.nextInt(11)-5).south(RANDOM.nextInt(11)-5));
                     if (level.getBlockState(sandPos).isAir() && !level.getBlockState(sandPos.below()).isAir()) {
@@ -312,19 +297,16 @@ public class DisasterManager {
     private static void runEarthquake(ServerLevel level) {
         for (ServerPlayer player : level.players()) {
             player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 2, false, false));
-            // Ekran sarsıntısı efekti (Bulantı taklidi)
             player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 40, 0, false, false));
 
-            // Yarıklar açılması ve blok düşmesi
             if (RANDOM.nextInt(10) == 0) {
                 BlockPos pPos = player.blockPosition();
                 BlockPos crackPos = pPos.east(RANDOM.nextInt(13)-6).south(RANDOM.nextInt(13)-6);
                 BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, crackPos).below();
                 
                 if (!level.getBlockState(surface).isAir() && surface.getY() > 50) {
-                    // Bloğu kırıp düşen blok entity'sine çeviriyoruz
                     FallingBlockEntity.fall(level, surface.above(15), level.getBlockState(surface));
-                    level.setBlockAndUpdate(surface, Blocks.AIR.defaultBlockState()); // Yarık hissi
+                    level.setBlockAndUpdate(surface, Blocks.AIR.defaultBlockState());
                 }
             }
         }
@@ -332,7 +314,6 @@ public class DisasterManager {
 
     // 8. GİRDAP
     private static void runWhirlpool(ServerLevel level) {
-        // Girdap merkezini yavaşça kaydır
         if (level.getGameTime() % 4 == 0) {
             disasterCenter = disasterCenter.east(RANDOM.nextInt(3)-1).south(RANDOM.nextInt(3)-1);
         }
@@ -346,11 +327,9 @@ public class DisasterManager {
                 Vec3 center = Vec3.atCenterOf(disasterCenter);
                 Vec3 pullDirection = center.subtract(living.position());
                 
-                // Aşağıya doğru batırma ve merkeze çekme gücü
                 living.setDeltaMovement(pullDirection.normalize().scale(0.25).add(0, -0.15, 0));
                 living.hurtMarked = true;
 
-                // Boğulmayı tetikle ve yavaşça hasar ver
                 living.setAirSupply(Math.max(0, living.getAirSupply() - 4));
                 if (level.getGameTime() % 20 == 0) {
                     living.hurt(level.damageSources().drown(), 1.5F);
