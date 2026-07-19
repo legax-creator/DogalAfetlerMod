@@ -20,7 +20,12 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Gradle Önbelleğini Ayarla (Hızlandırmak İçin)
+    - name: Eksik Gradle Wrapper Dosyalarını Otomatik Yükle
+      run: |
+        mkdir -p gradle/wrapper
+        wget https://raw.githubusercontent.com/gradle/gradle/v8.1.1/gradle/wrapper/gradle-wrapper.jar -O gradle/wrapper/gradle-wrapper.jar
+
+    - name: Gradle Önbelleğini Ayarla
       uses: gradle/actions/setup-gradle@v3
 
     - name: Gradle Komutunu Çalıştırılabilir Yap
