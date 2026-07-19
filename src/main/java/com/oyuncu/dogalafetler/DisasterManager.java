@@ -206,8 +206,8 @@ public class DisasterManager {
                         // Taşları yosunlu taşa çevir
                         BlockPos below = target.below();
                         if (level.getBlockState(below).getBlock() == Blocks.STONE) {
-                            level.setBlockAndUpdate(below, Blocks.MOSSY_STONE.defaultBlockState());
-                        }
+                            level.setBlockAndUpdate(below, Blocks.MOSSY_COBBLESTONE.defaultBlockState());
+                            
                     }
                 }
             }
