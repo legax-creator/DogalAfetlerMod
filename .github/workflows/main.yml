@@ -1,4 +1,3 @@
-# tetikleme
 name: Minecraft Mod CI
 
 on:
@@ -34,4 +33,10 @@ jobs:
 
     - name: Modu Derle (Build)
       run: ./gradlew build
-      
+
+    - name: Mod Dosyasını (JAR) İndirilebilir Çıktı Yap
+      uses: actions/upload-artifact@v4
+      with:
+        name: DogalAfetlerMod-Jar Dosyasi
+        path: build/libs/*.jar
+        
