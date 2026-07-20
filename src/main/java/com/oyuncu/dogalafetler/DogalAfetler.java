@@ -3,6 +3,7 @@ package com.oyuncu.dogalafetler;
 import com.oyuncu.dogalafetler.client.WindHudOverlay;
 import com.oyuncu.dogalafetler.init.ModBlocks;
 import com.oyuncu.dogalafetler.weather.WeatherSystem;
+import net.minecraft.core.BlockPos; // Eksik olan import satırımız buraya eklendi
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
 import net.minecraftforge.common.MinecraftForge;
