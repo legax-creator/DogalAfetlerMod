@@ -12,37 +12,58 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
-@Mod("dogalafetler")
+@Mod(DogalAfetler.MODID)
 public class DogalAfetler {
+    public static final String MODID = "dogalafetler";
 
     public DogalAfetler() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // Yeni eklediğimiz İnşaat Demiri ve Çimento bloklarını oyuna kaydediyoruz
+        // Blok ve Item kayıtları
         ModBlocks.register(modEventBus);
 
-        // Forge event bus yapısını kaydediyoruz
+        // Forge event bus yapısı
         MinecraftForge.EVENT_BUS.register(this);
     }
 
-    // 1. DÜNYA DÖNGÜSÜ: Rüzgarın ve mevsimlerin arka planda güncellenmesi
-    @Mod.EventBusSubscriber(modid = "dogalafetler", bus = Mod.EventBusSubscriber.Bus.FORGE)
+    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
     public static class ForgeEvents {
+        private static int whirlpoolTicks = 0;
+        private static int blizzardTicks = 0;
+
         @SubscribeEvent
         public static void onWorldTick(TickEvent.LevelTickEvent event) {
-            // Sadece sunucu tarafında ve tick sonlandığında rüzgarı günceller
-            if (event.phase == TickEvent.Phase.END && !event.level.isClientSide()) {
-                WeatherSystem.updateWeather(event.level);
+            if (event.phase == TickEvent.Phase.END && !event.level.isClientSide() && event.level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                // Rüzgar ve mevsim sistemi döngüsü
+                WeatherSystem.updateWeather(serverLevel);
+
+                // Süreli afetlerin oyun içindeki döngüsel tetikleyicileri
+                BlockPos spawnPos = serverLevel.getSharedSpawnPos();
+
+                // Rüzgar hızı yüksekse hortumu otomatik tetikle
+                if (WeatherSystem.getWindSpeed() > 65.0f) {
+                    DisasterManager.tickTornado(serverLevel, spawnPos);
+                }
+
+                // Girdap döngüsü (Örnek simülasyon: Sürekli aktif ticklenir, süreye göre evrilir)
+                whirlpoolTicks++;
+                DisasterManager.tickWhirlpool(serverLevel, spawnPos, whirlpoolTicks / 20);
+
+                // Kar fırtınası döngüsü (Kış aylarında otomatik tetiklenir)
+                if (WeatherSystem.getCurrentMonth() == 12 || WeatherSystem.getCurrentMonth() <= 2) {
+                    blizzardTicks++;
+                    if (blizzardTicks % 20 == 0) { // Her saniye
+                        DisasterManager.tickBlizzard(serverLevel, spawnPos);
+                    }
+                }
             }
         }
     }
 
-    // 2. HUD KAYDI: Rüzgar göstergesinin Hotbar sağına çizilmesi
-    @Mod.EventBusSubscriber(modid = "dogalafetler", bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ClientModEvents {
         @SubscribeEvent
         public static void registerOverlays(RegisterGuiOverlaysEvent event) {
-            // Rüzgar arayüzümüzü ekran katmanlarına ekliyoruz
             event.registerAboveAll("wind_hud", WindHudOverlay.HUD_WIND);
         }
     }
