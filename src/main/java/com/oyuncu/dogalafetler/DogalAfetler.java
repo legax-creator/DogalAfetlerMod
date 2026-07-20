@@ -1,6 +1,7 @@
 package com.oyuncu.dogalafetler;
 
 import com.oyuncu.dogalafetler.client.WindHudOverlay;
+import com.oyuncu.dogalafetler.init.ModBlocks;
 import com.oyuncu.dogalafetler.weather.WeatherSystem;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
@@ -17,11 +18,14 @@ public class DogalAfetler {
     public DogalAfetler() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
+        // Yeni eklediğimiz İnşaat Demiri ve Çimento bloklarını oyuna kaydediyoruz
+        ModBlocks.register(modEventBus);
+
         // Forge event bus yapısını kaydediyoruz
         MinecraftForge.EVENT_BUS.register(this);
     }
 
-    // 1. DÜNYA DÖNGÜSÜ: Rüzgar ve mevsimlerin her gün arka planda güncellenmesi
+    // 1. DÜNYA DÖNGÜSÜ: Rüzgarın ve mevsimlerin arka planda güncellenmesi
     @Mod.EventBusSubscriber(modid = "dogalafetler", bus = Mod.EventBusSubscriber.Bus.FORGE)
     public static class ForgeEvents {
         @SubscribeEvent
@@ -33,12 +37,12 @@ public class DogalAfetler {
         }
     }
 
-    // 2. HUD KAYDI: Rüzgar göstergesinin Hotbar sağına çizilmesi (Sadece Client/İstemci tarafında çalışır)
+    // 2. HUD KAYDI: Rüzgar göstergesinin Hotbar sağına çizilmesi
     @Mod.EventBusSubscriber(modid = "dogalafetler", bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ClientModEvents {
         @SubscribeEvent
         public static void registerOverlays(RegisterGuiOverlaysEvent event) {
-            // Arayüzümüzü en üste katman olarak ekliyoruz
+            // Rüzgar arayüzümüzü ekran katmanlarına ekliyoruz
             event.registerAboveAll("wind_hud", WindHudOverlay.HUD_WIND);
         }
     }
