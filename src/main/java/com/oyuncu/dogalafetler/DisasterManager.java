@@ -11,7 +11,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -21,20 +20,19 @@ import java.util.List;
 
 public class DisasterManager {
 
-    // AFET 1: TSUNAMİ MECHANIC
+    // AFET 1: TSUNAMİ
     public static void triggerTsunami(ServerLevel level, BlockPos strikePos) {
         level.players().forEach(p -> p.sendSystemMessage(Component.literal("§c§lUYARI: Dev Tsunami dalgaları kıyıya yaklaşıyor!")));
         
-        int radius = 40; // 35-45 blok kalınlığında dalga devasa yapısı
-        int height = 15; // Yükseklik
+        int radius = 40;
+        int height = 15;
 
         for (int x = -radius; x <= radius; x++) {
-            for (int z = 0; z < 60; z++) { // 50-75 blok ilerleme
+            for (int z = 0; z < 60; z++) {
                 for (int y = 0; y < height; y++) {
                     BlockPos currentPos = strikePos.offset(x, y, z);
                     BlockState state = level.getBlockState(currentPos);
 
-                    // Betonarme temel kontrolü: Güvenliyse YIKMA, değilse su yap
                     if (!StructureValidator.isSafeStructure(level, currentPos)) {
                         if (!state.is(Blocks.BEDROCK) && !state.is(Blocks.AIR)) {
                             level.setBlockAndUpdate(currentPos, Blocks.WATER.defaultBlockState());
@@ -45,13 +43,11 @@ public class DisasterManager {
         }
     }
 
-    // AFET 2: 3 KADEMELİ DEPREM MECHANIC
+    // AFET 2: DEPREM
     public static void triggerEarthquake(ServerLevel level, BlockPos centerPos, int intensity) {
-        // intensity: 1 (Az), 2 (Orta), 3 (Yüksek)
         String msg = intensity == 3 ? "§4§lŞİDDETLİ DEPREM OLUYOR! GÜVENLİ BİR YERE GEÇİN!" : "§eYer sarsılıyor...";
         level.players().forEach(p -> p.sendSystemMessage(Component.literal(msg)));
 
-        int durationTicks = intensity * 400; // Şiddetine göre süre artar (15-60 sn arası)
         int damageRadius = intensity * 15;
 
         for (int x = -damageRadius; x <= damageRadius; x++) {
@@ -59,10 +55,8 @@ public class DisasterManager {
                 if (level.random.nextInt(100) < (intensity * 20)) {
                     BlockPos surfacePos = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, centerPos.offset(x, 0, z)).below();
                     
-                    // Betonarme değilse yarık aç veya bloğu kır
                     if (!StructureValidator.isSafeStructure(level, surfacePos)) {
                         level.setBlockAndUpdate(surfacePos, Blocks.AIR.defaultBlockState());
-                        // Altındaki blokları da mağara göçüğü simülasyonu için sars
                         if (intensity == 3) {
                             level.setBlockAndUpdate(surfacePos.below(), Blocks.GRAVEL.defaultBlockState());
                         }
@@ -71,74 +65,103 @@ public class DisasterManager {
             }
         }
 
-        // Oyunculara sarsıntı ve hasar verme efekti
         List<ServerPlayer> players = level.getEntitiesOfClass(ServerPlayer.class, new net.minecraft.world.phys.AABB(centerPos).inflate(damageRadius));
         for (ServerPlayer player : players) {
             player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 200, 1));
             if (intensity == 3 && player.onGround()) {
-                player.hurt(level.damageSources().fall(), 5.0F); // 4-6 kalp arası hasar
+                player.hurt(level.damageSources().fall(), 5.0F);
             }
         }
     }
 
-    // AFET 3: FİZİKSEL HORTUM MECHANIC (Rüzgar Hızına Bağlı)
+    // AFET 3: HORTUM (Görsel Netleştirildi)
     public static void tickTornado(ServerLevel level, BlockPos tornadoPos) {
-        // Rüzgar hızı hortum için yeterliyse hortum nesneleri çeker ve fırlatır
         if (WeatherSystem.getWindSpeed() > 65.0f) {
             int pullRadius = 20;
             List<Entity> entities = level.getEntities((Entity) null, new net.minecraft.world.phys.AABB(tornadoPos).inflate(pullRadius));
 
             for (Entity entity : entities) {
                 if (!(entity instanceof ServerPlayer player && player.isCreative())) {
-                    // Yukarı ve merkeze doğru fırlatma fiziği
-                    Vec3 motion = new Vec3(0, 1.2, 0); // ~20 blok yukarı fırlatma
+                    Vec3 motion = new Vec3(0, 1.2, 0);
                     entity.setDeltaMovement(motion);
                     entity.hasImpulse = true;
                 }
             }
-            // Partikül efektleri ile hortum görüntüsü
-            level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, tornadoPos.getX(), tornadoPos.getY(), tornadoPos.getZ(), 50, 2, 10, 2, 0.1);
+            
+            // GÖRSEL DÜZELTME: Sunucudan tüm clientlara (override) zorunlu partikül basıyoruz.
+            // Yüksekliği spiral şeklinde tarayarak devasa bir hortum sütunu oluşturuyoruz.
+            for (int height = 0; height < 25; height += 2) {
+                level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, 
+                        tornadoPos.getX() + (Math.sin(height) * 1.5), 
+                        tornadoPos.getY() + height, 
+                        tornadoPos.getZ() + (Math.cos(height) * 1.5), 
+                        15, 0.5, 0.5, 0.5, 0.02);
+                
+                // Ekstra bulut partikülleri ile içini dolduruyoruz
+                level.sendParticles(ParticleTypes.CLOUD, tornadoPos.getX(), tornadoPos.getY() + height, tornadoPos.getZ(), 5, 1.0, 0.5, 1.0, 0.01);
+            }
         }
     }
 
-    // AFET 4: OKYANUS GİRDABI MECHANIC (YENİ!)
+    // AFET 4: GİRDAP (Görsel Netleştirildi)
     public static void tickWhirlpool(ServerLevel level, BlockPos whirlpoolPos, int elapsedSeconds) {
-        // Sadece su biyomlarında tetiklenir kontrolü çağrıldığı yerde yapılacak
-        
         if (elapsedSeconds <= 10) {
-            // İlk 10 saniye: Girdap küçük, tehlikesiz. Sadece su partikülü döner.
-            level.sendParticles(ParticleTypes.BUBBLE, whirlpoolPos.getX(), whirlpoolPos.getY(), whirlpoolPos.getZ(), 20, 2, 0.5, 2, 0.05);
+            // İlk 10 saniye başlangıç efekti (büyük partiküllerle)
+            level.sendParticles(ParticleTypes.SPLASH, whirlpoolPos.getX(), whirlpoolPos.getY() + 0.5, whirlpoolPos.getZ(), 30, 1, 0.1, 1, 0.1);
             return;
         }
 
-        // 10 saniyeden sonra devasa aşamaya geçer (Toplam 2 dakika sürecek)
         int pullRadius = 35;
         List<Entity> entities = level.getEntities((Entity) null, new net.minecraft.world.phys.AABB(whirlpoolPos).inflate(pullRadius));
 
         for (Entity entity : entities) {
-            BlockPos entityPos = entity.blockPosition();
-            
-            // Merkez ile varlık arasındaki mesafe vektörü
             double dx = whirlpoolPos.getX() - entity.getX();
             double dz = whirlpoolPos.getZ() - entity.getZ();
             
-            // Kendi etrafında döndürme (Merkezkaç) ve İçine Çekme (Spiral) fiziği
-            double angle = Math.atan2(dz, dx) + 0.2; // Dönme açısı artışı
+            double angle = Math.atan2(dz, dx) + 0.2;
             double distance = Math.sqrt(dx * dx + dz * dz);
             
-            // Merkeze yaklaştıkça çekim gücü artar, tekneler batar veya zorlanır
             double targetX = whirlpoolPos.getX() - Math.cos(angle) * (distance - 0.3);
             double targetZ = whirlpoolPos.getZ() - Math.sin(angle) * (distance - 0.3);
             
             double motionX = (targetX - entity.getX()) * 0.2;
             double motionZ = (targetZ - entity.getZ()) * 0.2;
-            double motionY = -0.15; // Aşağı, girdabın dibine doğru çekim
+            double motionY = -0.15;
 
             entity.setDeltaMovement(new Vec3(motionX, motionY, motionZ));
             entity.hasImpulse = true;
         }
 
-        // Görsel dev anafor efekti
-        level.sendParticles(ParticleTypes.CURRENT_DOWNPOUR, whirlpoolPos.getX(), whirlpoolPos.getY(), whirlpoolPos.getZ(), 100, 5, 1, 5, 0.2);
+        // GÖRSEL DÜZELTME: Su yüzeyinde dönen dev bir girdap çemberi oluşturuyoruz
+        for (int r = 2; r < 8; r += 2) {
+            for (double i = 0; i < Math.PI * 2; i += 0.8) {
+                double pX = whirlpoolPos.getX() + (Math.cos(i) * r);
+                double pZ = whirlpoolPos.getZ() + (Math.sin(i) * r);
+                // Kabarcık ve su damlası partiküllerini zorla basıyoruz
+                level.sendParticles(ParticleTypes.BUBBLE, pX, whirlpoolPos.getY() + 0.2, pZ, 5, 0.1, 0.1, 0.1, 0.0);
+                level.sendParticles(ParticleTypes.POOF, pX, whirlpoolPos.getY() + 0.5, pZ, 2, 0.1, 0.1, 0.1, 0.02);
+            }
+        }
+    }
+
+    // AFET 5: ÇIĞ VE KAR FIRTINASI (YENİ EKLEME VE GÖRSEL)
+    public static void tickBlizzard(ServerLevel level, BlockPos centerPos) {
+        // Kar fırtınasının vurduğu alandaki oyuncuları yavaşlat ve görüşü kapat
+        int radius = 30;
+        List<ServerPlayer> players = level.getEntitiesOfClass(ServerPlayer.class, new net.minecraft.world.phys.AABB(centerPos).inflate(radius));
+        
+        for (ServerPlayer player : players) {
+            player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 2));
+            player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0)); // Görüşü karartır fırtına hissi verir
+        }
+
+        // GÖRSEL: Havadan yoğun kar yağıyormuş gibi bembeyaz kar ve poof partikülleri fırlatıyoruz
+        for (int i = 0; i < 5; i++) {
+            int rx = level.random.nextInt(radius * 2) - radius;
+            int rz = level.random.nextInt(radius * 2) - radius;
+            BlockPos airPos = centerPos.offset(rx, 15, rz); // Yukarıdan aşağı yağış
+            
+            level.sendParticles(ParticleTypes.SNOWFLAKE, airPos.getX(), airPos.getY(), airPos.getZ(), 40, 5, 5, 5, 0.1);
+        }
     }
 }
